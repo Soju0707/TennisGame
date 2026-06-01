@@ -5,110 +5,132 @@
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-	const int WIDTH = 960, HEIGHT = 640;
+	const int WIDTH = 960, HEIGHT = 640;	// 画面の幅と高さ
 	SetWindowText("テニスゲーム");
 	SetGraphMode(WIDTH, HEIGHT, 32);
 	ChangeWindowMode(TRUE);
 	if (DxLib_Init() == -1) return -1;
 	SetBackgroundColor(0, 0, 0);
 	SetDrawScreen(DX_SCREEN_BACK);
+	SetMouseDispFlag(FALSE);	// マウスカーソルを非表示にする
 
-	int ballX = 40;
-	int ballY = 80;
-	int ballVx = 5;
-	int ballVy = 5;
-	int ballR = 10;
+	int ballX = 40;		// ボールの初期X座標
+	int ballY = 80;		// ボールの初期Y座標
+	int ballVx = 5;		// ボールのX方向の速度
+	int ballVy = 5;		// ボールのY方向の速度
+	int ballR = 10;		// ボールの半径
 
-	int racketX = WIDTH/2;
-	int racketY = HEIGHT - 50;
-	int racketW = 120;
-	int racketH = 12;
+	int racketX = WIDTH/2;		// ラケットの初期X座標
+	int racketY = HEIGHT - 50;	// ラケットの初期Y座標
+	int racketW = 120;			// ラケットの幅
+	int racketH = 12;			// ラケットの高さ
 
-	enum {TITLE, PLAY, OVER};
-	int scene = TITLE;
-	int timer = 0;
-	int score = 0;
-	int higtScore = 1000;
-	int dx, dy;
-	int mouseX, mouseY;
+	enum { TITLE, PLAY, OVER };	// ゲームのシーン
+	int scene = TITLE;		// ゲームのシーンを管理
+	int timer = 0;			// ゲームの時間を計測
+	int score = 0;			// スコア
+	int higtScore = 1000;	// ハイスコア
+	int dx, dy;				// ボールとラケットの距離
+	int mouseX, mouseY;		// マウスの座標
+
+	int startSE = LoadSoundMem("SE/gameStart.mp3");	// ゲーム開始のSE
+	int overSE = LoadSoundMem("SE/gameOver.mp3");	// ゲームオーバーのSE
+	int receiveSE = LoadSoundMem("SE/recieve.mp3");	// ボールを受けるSE
+	int reflectSE = LoadSoundMem("SE/reflect.mp3");	// ボールが壁に当たるSE
 
 	while (1)
 	{
 		ClearDrawScreen();
 		timer++;
-		switch (scene)
+		switch (scene)	// シーンごとの処理に分岐
 		{
 		case TITLE:
 			SetFontSize(50);
-			DrawString(WIDTH / 2 - 50 / 2 * 12 / 2, HEIGHT / 3, "Tennis Game", 0x00ff00);
+			DrawString(WIDTH / 2 - 50 / 2 * 12 / 2, HEIGHT / 3, "Tennis Game", 0xffffff);	// タイトルの表示
 			if (timer % 60 < 30) {
 				SetFontSize(30);
-				DrawString(WIDTH / 2 - 30 / 2 * 21 / 2, HEIGHT * 2 / 3, "Press SPACE to Start.", 0x00ffff);
+				DrawString(WIDTH / 2 - 46 / 2 * 21 / 2, HEIGHT * 2 / 3,		// スタートの案内の表示
+					"Press SPACE or CLICK to Start.", 0xffffff);
 			}
 
-			if (CheckHitKey(KEY_INPUT_SPACE) == 1)
+			if (CheckHitKey(KEY_INPUT_SPACE) == 1 || GetMouseInput() & MOUSE_INPUT_LEFT)
 			{
 				ballX = 40;
 				ballY = 80;
 				ballVx = 5;
 				ballVy = 5;
-				racketX = WIDTH / 2;
-				racketY = HEIGHT - 50;
+				racketX = WIDTH / 2;		// ラケットX位置は画面中央
+				racketY = HEIGHT - 50;		// ラケットY位置は画面下部
 				score = 0;
 				scene = PLAY;
+				PlaySoundMem(startSE, DX_PLAYTYPE_NORMAL);
 			}
 			break;
 
 		case PLAY:
-			ballX = ballX + ballVx;
-			if (ballX < ballR && ballVx < 0)	ballVx = -ballVx;
-			if (ballX > WIDTH - ballR && ballVx > 0) ballVx = -ballVx;
-			ballY = ballY + ballVy;
-			if (ballY < ballR && ballVy < 0)	ballVy = -ballVy;
-			if (ballY > HEIGHT)
+			ballX = ballX + ballVx;	// ボールのX移動
+			if (ballX < ballR && ballVx < 0) {			// 左壁に衝突
+				ballVx = -ballVx;
+				PlaySoundMem(reflectSE, DX_PLAYTYPE_BACK);
+			}
+			if (ballX > WIDTH - ballR && ballVx > 0) {	// 右壁に衝突
+				ballVx = -ballVx;
+				PlaySoundMem(reflectSE, DX_PLAYTYPE_BACK);
+			}
+
+			ballY = ballY + ballVy;	// ボールのY移動
+			if (ballY < ballR && ballVy < 0) {			// 上壁に衝突
+				ballVy = -ballVy;
+				PlaySoundMem(reflectSE, DX_PLAYTYPE_BACK);
+			}
+			if (ballY > HEIGHT)		// 下に落ちた
 			{
 				scene = OVER;
 				timer = 0;
+				PlaySoundMem(overSE, DX_PLAYTYPE_BACK);
 				break;
 			}
-			DrawCircle(ballX, ballY, ballR, 0xff0000, TRUE);
-#ifdef MOUSE_USE
+			DrawCircle(ballX, ballY, ballR, 0xffffff, FALSE);	// ボールの描画
+#ifdef MOUSE_USE	// マウスで操作
 			DxLib::GetMousePoint(&mouseX, &mouseY);
 			racketX = mouseX;
+//			racketY = mouseY;
 			if (racketX < racketW / 2)	racketX = racketW / 2;
 			if (racketX > WIDTH - racketW / 2)	racketX = WIDTH - racketW / 2;
-#else
+#else				// キーボードで操作
 			if (CheckHitKey(KEY_INPUT_LEFT) == 1) {
 				racketX = racketX - 10;
 				if (racketX < racketW / 2) racketX = racketW / 2;
 			}
 			if (CheckHitKey(KEY_INPUT_RIGHT) == 1) {
 				racketX = racketX + 10;
-				if (racketX > WIDTH - racketW / 2) racketX = WIDTH - racketW / 2;
+				if (racketX > WIDTH - racketW / 2)	racketX = WIDTH - racketW / 2;
 			}
 #endif
-			DxLib::DrawBox(racketX - racketW / 2, racketY - racketH / 2, racketX + racketW / 2, racketY + racketH / 2, 0x0080ff, TRUE);
+			// ラケットの描画
+			DxLib::DrawBox(racketX - racketW / 2, racketY - racketH / 2,racketX + racketW / 2, racketY + racketH / 2, 0xffffff, FALSE);
 
 			dx = ballX - racketX;
 			dy = ballY - racketY;
-			if (-racketW / 2 - 10 < dx && dx < racketW / 2 + 10 && -20 < dy && dy < 0) {
-				ballVy = -5 - rand() % 5;
+			if (-racketW / 2 - 10 < dx && dx < racketW / 2 + 10 && -20 < dy && dy < 0) {	// ボールがラケットに衝突
+				ballVy = -5 - rand() % 5;	// ボールのY速度をランダムに変化させる
+				PlaySoundMem(receiveSE, DX_PLAYTYPE_BACK);
 				score = score + 100;
-				if (score > higtScore)	higtScore = score;
+				if (score > higtScore)	higtScore = score;	// ハイスコアの更新
 			}
 			break;
 
 		case OVER:
 			SetFontSize(40);
-			DxLib::DrawString(WIDTH / 2 - 40 / 2 * 9 / 2, HEIGHT / 3, "GAME OVER", 0xff0000);
+			DxLib::DrawString(WIDTH / 2 - 40 / 2 * 9 / 2, HEIGHT / 3, "GAME OVER", 0xffffff);	// ゲームオーバーの表示
 			if (timer > 60 * 5)	scene = TITLE;
 			break;
 
 		}
 
 		SetFontSize(30);
-		DxLib::DrawFormatString(10, 10, 0xffffff, "SCORE %d", score);
-		DxLib::DrawFormatString(WIDTH - 200, 10, 0xffff00, "HI-SC %d", higtScore);
+		DxLib::DrawFormatString(10, 10, 0xffffff, "SCORE %d", score);	// スコアの表示
+		DxLib::DrawFormatString(WIDTH - 200, 10, 0xffffff, "HI-SC %d", higtScore);	// ハイスコアの表示
 
 		DxLib::ScreenFlip();
 		DxLib::WaitTimer(16);

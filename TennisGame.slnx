@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="TennisGame.vcxproj" />
+  <Project Path="TennisGame.vcxproj" Id="3e63f589-d7e5-4c35-b44e-8018dc4032d4" />
 </Solution>
